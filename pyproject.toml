@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "media-toolkit"
+version = "0.1.1"
+description = "Web-ready standardized file processing and serialization. Read, load and convert to standard file types with a common interface."
+requires-python = ">=3.8"
+authors = [
+    { name = "SocAIty" }
+]
+license = { text = "GPLv3" }
+readme = "README.md"
+dependencies = [
+    "numpy>=1.18.0",
+    "opencv-python>=4.2",
+    "soundfile>=0.12.0",
+    "vidgear[core]",
+    "pydub",
+    "tqdm"
+]
+
+[project.urls]
+Repository = "https://github.com/SocAIty/multimodal-files"
+
+
+[project.optional-dependencies]
+ImageFile = [
+    "numpy>=1.18.0",
+    "opencv-python>=4.2",
+]
+AudioFile = [
+    "numpy>=1.18.0",
+    "soundfile>=0.12.0",
+    "pydub"
+]
+VideoFile = [
+    "opencv-python>=4.2",
+    "numpy>=1.18.0",
+    "vidgear[core]",
+    "pydub"
+]
