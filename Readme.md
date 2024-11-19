@@ -69,6 +69,8 @@ How to setup Azure Blob Storage and get connection string?
 
 # Contribute
 
+Test and implement S3 features.
+
 Missing a cloud provider?
 - Just implement the missing class in core/providers with inheritance of the interface i_cloud_storage and make a pull request
 
