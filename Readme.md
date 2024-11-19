@@ -6,8 +6,8 @@
 Simplistic unified interface for uploading and downloading files to the cloud. 
 
 Supports
-- Azure Blob Storage
-- S3 Storages (Amazon, ...)
+- Azure Blob Storage  `:white_check_mark:`
+- S3 Storages (Amazon, ...) `:question:`
 
 
 # Installation
