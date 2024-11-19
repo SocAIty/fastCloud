@@ -5,7 +5,10 @@ import time
 from typing import Optional, Union
 from urllib.parse import urlparse
 
+from media_toolkit import MediaFile
 from media_toolkit.utils.dependency_requirements import requires
+
+from fastCloud.core.i_cloud_storage import CloudStorage
 
 try:
     import boto3
@@ -16,8 +19,6 @@ except ImportError:
     pass
 
 from tqdm import tqdm
-
-from fastsdk.web.req.cloud_storage.i_cloud_storage import CloudStorage
 
 
 class S3Storage(CloudStorage):
@@ -142,3 +143,12 @@ class S3Storage(CloudStorage):
         # boto_client.download_fileobj(url,)
         boto_client.download_file(url=url, destfile=save_path)
         return save_path
+
+
+    def upload(
+            self,
+            file: Union[bytes, io.BytesIO, MediaFile, str],
+            file_name: str = None,
+            folder: Optional[str] = None
+    ) -> Union[str, None]:
+        a =1

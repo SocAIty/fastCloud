@@ -1,8 +1,9 @@
 from typing import Union
 
-from fastsdk.web.req.cloud_storage.i_cloud_storage import CloudStorage
-from fastsdk.web.req.cloud_storage.azure_storage import AzureBlobStorage
-from fastsdk.web.req.cloud_storage.s3_storage import S3Storage
+from fastCloud.core.i_cloud_storage import CloudStorage
+from fastCloud.core.providers.azure_storage import AzureBlobStorage
+from fastCloud.core.providers.s3_storage import S3Storage
+
 
 def create_cloud_storage(
         # for azure

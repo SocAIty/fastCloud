@@ -1,7 +1,9 @@
 import uuid
-from typing import Union, Optional
+from typing import Union
 import io
 from urllib.parse import urlparse
+
+from fastCloud.core.i_cloud_storage import CloudStorage
 
 try:
     from azure.core.exceptions import ResourceNotFoundError
@@ -9,7 +11,6 @@ try:
 except ImportError:
     pass
 
-from fastsdk.web.req.cloud_storage.i_cloud_storage import CloudStorage
 from media_toolkit import MediaFile
 from media_toolkit.utils.dependency_requirements import requires
 
@@ -17,6 +18,12 @@ from media_toolkit.utils.dependency_requirements import requires
 class AzureBlobStorage(CloudStorage):
     @requires("azure.storage.blob")
     def __init__(self, sas_access_token: str = None, connection_string: str = None):
+        """
+        Create an azure blob storage client either with a SAS access token or a connection string.
+        :param sas_access_token: sas_access_token in form
+        :param connection_string: formatted like
+        """
+
         if sas_access_token:
             self.blob_service_client = BlobServiceClient(account_url=sas_access_token)
         elif connection_string:
@@ -26,18 +33,18 @@ class AzureBlobStorage(CloudStorage):
             self,
             file: Union[bytes, io.BytesIO, MediaFile, str],
             file_name: str = None,
-            folder: Optional[str] = None
+            folder: str = None
     ) -> Union[str, None]:
-        #if folder is None:
-        #    raise ValueError("Container name must be provided for Azure Blob upload")
-        folder = "useruploads"
+
+        if folder is None:
+            raise ValueError("Folder aka container name must be provided for Azure Blob upload")
 
         if file_name is None:
             file_name = uuid.uuid4()
 
         file = MediaFile().from_any(file)
 
-        blob_client = self.blob_service_client.get_blob_client(container=folder, blob="file_name.png")
+        blob_client = self.blob_service_client.get_blob_client(container=folder, blob=file_name)
 
         try:
             b = file.to_bytes()
