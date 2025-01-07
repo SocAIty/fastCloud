@@ -18,14 +18,19 @@ dependencies = [
 
 [project.optional-dependencies]
 azure = [
-    "azure-storage-blob"
+    "azure-storage-blob",
+    "httpx"
 ]
 S3 =[
     "boto3"
 ]
+api_providers = [
+    "httpx"
+]
 full = [
     "azure-storage-blob",
-    "boto3"
+    "boto3",
+    "httpx"
 ]
 
 

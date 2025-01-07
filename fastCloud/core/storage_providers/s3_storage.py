@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from media_toolkit import MediaFile
 from media_toolkit.utils.dependency_requirements import requires
 
-from fastCloud.core.i_cloud_storage import CloudStorage
+from fastCloud.core.storage_providers.i_cloud_storage import CloudStorage
 
 try:
     import boto3
