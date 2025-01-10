@@ -1,6 +1,6 @@
-from fastCloud.core.i_fast_cloud import FastCloud
-from fastCloud.core.storage_providers.i_cloud_storage import CloudStorage
-from fastCloud.core.api_providers.i_upload_api import BaseUploadAPI
+from .i_fast_cloud import FastCloud
+from .storage_providers.i_cloud_storage import CloudStorage
+from .api_providers import BaseUploadAPI, ReplicateUploadAPI, SocaityUploadAPI
 
 from .storage_providers.azure_storage import AzureBlobStorage
 from .storage_providers.s3_storage import S3Storage

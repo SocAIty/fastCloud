@@ -1,5 +1,5 @@
 import io
-from typing import Union, Optional
+from typing import Union
 
 from media_toolkit import MediaFile
 

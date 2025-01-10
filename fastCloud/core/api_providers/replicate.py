@@ -1,4 +1,4 @@
-from fastCloud import BaseUploadAPI
+from fastCloud.core.api_providers.i_upload_api import BaseUploadAPI
 from media_toolkit.utils.dependency_requirements import requires
 
 try:
@@ -16,8 +16,8 @@ class ReplicateUploadAPI(BaseUploadAPI):
         api_key (str): Replicate API key.
     """
 
-    def __init__(self, api_key: str, upload_endpoint: str = "https://api.replicate.com/v1/files"):
-        super().__init__(upload_endpoint, api_key)
+    def __init__(self, api_key: str, upload_endpoint: str = "https://api.replicate.com/v1/files", *args, **kwargs):
+        super().__init__(api_key=api_key, upload_endpoint=upload_endpoint, *args, **kwargs)
 
     def _process_upload_response(self, response: Response) -> str:
         """Process Replicate-specific response format.
@@ -31,7 +31,7 @@ class ReplicateUploadAPI(BaseUploadAPI):
         Raises:
             Exception: If the upload fails or URL extraction fails.
         """
-        if response.status_code != 200:
+        if response.status_code not in [200, 201]:
             raise Exception(f"Failed to upload to Replicate. {response.text}")
 
         data = response.json()

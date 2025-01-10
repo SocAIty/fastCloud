@@ -2,7 +2,7 @@ import io
 from abc import ABC, abstractmethod
 from typing import Union, Optional
 
-from fastCloud import FastCloud
+from fastCloud.core.i_fast_cloud import FastCloud
 from fastCloud.core.api_providers.HTTPClientManager import HTTPClientManager
 from media_toolkit import MediaFile
 from media_toolkit.utils.dependency_requirements import requires
@@ -14,7 +14,7 @@ except:
     pass
 
 
-@requires("httpx")
+
 class BaseUploadAPI(FastCloud, ABC):
     """Base class for upload API implementations using Template Method pattern.
 
@@ -23,7 +23,7 @@ class BaseUploadAPI(FastCloud, ABC):
         api_key (str): Authentication API key.
     """
 
-    def __init__(self, upload_endpoint: str, api_key: str):
+    def __init__(self, api_key: str, upload_endpoint: str = None, *args, **kwargs):
         self.upload_endpoint = upload_endpoint
         self.api_key = api_key
         self.http_client = HTTPClientManager()

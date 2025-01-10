@@ -1,7 +1,7 @@
 import io
 from typing import Union
 
-from fastCloud import BaseUploadAPI
+from fastCloud.core.api_providers.i_upload_api import BaseUploadAPI
 from media_toolkit import MediaFile
 from media_toolkit.utils.dependency_requirements import requires
 
@@ -19,8 +19,8 @@ class SocaityUploadAPI(BaseUploadAPI):
         api_key (str): Socaity API key.
     """
 
-    def __init__(self, api_key: str, *args, **kwargs):
-        super().__init__("https://api.replicate.com/v1/files", api_key)
+    def __init__(self, api_key: str, upload_endpoint="https://socaity.ai.api/v1/files", *args, **kwargs):
+        super().__init__(api_key=api_key, upload_endpoint=upload_endpoint, *args, **kwargs)
 
     async def _upload_to_temporary_url(self, client: AsyncClient, sas_url: str, file: MediaFile) -> None:
         """Upload a file to a temporary URL.
@@ -59,7 +59,7 @@ class SocaityUploadAPI(BaseUploadAPI):
         Raises:
             Exception: If getting the temporary URL fails.
         """
-        if response.status_code != 200:
+        if response.status_code not in [200, 201]:
             raise Exception("Failed to get temporary upload URL")
         return response.json().get("upload_url")
 

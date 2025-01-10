@@ -1,6 +1,6 @@
 from typing import Union
 from fastCloud.core import (
-    CloudStorage, FastCloud, AzureBlobStorage, S3Storage, BaseUploadAPI, ReplicateBaseUploadAPI, SocaityBaseUploadAPI
+    CloudStorage, FastCloud, AzureBlobStorage, S3Storage, BaseUploadAPI, ReplicateUploadAPI, SocaityUploadAPI
 )
 
 
@@ -27,8 +27,8 @@ def create_fast_cloud(
 
     if api_upload_endpoint:
         if "socaity" in api_upload_endpoint:
-            return SocaityBaseUploadAPI(api_upload_endpoint, api_upload_api_key)
+            return SocaityUploadAPI(api_key=api_upload_api_key, upload_endpoint=api_upload_endpoint)
         if "replicate" in api_upload_endpoint:
-            return ReplicateBaseUploadAPI(api_upload_endpoint, api_upload_api_key)
+            return ReplicateUploadAPI(api_key=api_upload_api_key, upload_endpoint=api_upload_endpoint)
 
     return None
