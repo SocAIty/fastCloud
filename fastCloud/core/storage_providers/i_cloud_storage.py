@@ -1,5 +1,5 @@
 import io
-from typing import Union, Optional
+from typing import Union
 
 from fastCloud.core import FastCloud
 from media_toolkit import MediaFile
@@ -11,14 +11,14 @@ class CloudStorage(FastCloud):
     """
     def upload(
             self,
-            file: Union[bytes, io.BytesIO, MediaFile, str],
-            file_name: str = None,
-            folder: Optional[str] = None
+            file: Union[bytes, io.BytesIO, MediaFile, str, list],
+            file_name: Union[str, list] = None,
+            folder: str = None
     ) -> str:
         """
         Uploads a file to the cloud storage.
-        :param file: The file data to upload. Is parsed to MediaFile if not already.
-        :param file_name: The name of the file on the cloud storage. If None an uuid is generated.
+        :param file: The file(s) data to upload. Is parsed to MediaFile if not already.
+        :param file_name: The name of the file(s) on the cloud storage. If None an uuid is generated.
         :param folder: Azure container-name or S3 bucket-name to upload the file to. If none default is used.
         :return: The URL of the uploaded file.
         """
@@ -26,9 +26,9 @@ class CloudStorage(FastCloud):
 
     async def upload_async(
             self,
-            file: Union[bytes, io.BytesIO, MediaFile, str],
-            file_name: str = None,
-            folder: Optional[str] = None
+            file: Union[bytes, io.BytesIO, MediaFile, str, list],
+            file_name: Union[str, list] = None,
+            folder: str = None
     ) -> str:
         """
         Uploads a file to the cloud storage asynchronously.

@@ -2,6 +2,7 @@
 import io
 import multiprocessing
 import time
+import uuid
 from typing import Optional, Union
 from urllib.parse import urlparse
 
@@ -144,11 +145,16 @@ class S3Storage(CloudStorage):
         boto_client.download_file(url=url, destfile=save_path)
         return save_path
 
-
     def upload(
             self,
             file: Union[bytes, io.BytesIO, MediaFile, str],
             file_name: str = None,
             folder: Optional[str] = None
     ) -> Union[str, None]:
-        a =1
+
+        if file_name is None:
+            file_name = uuid.uuid4()
+
+        file = MediaFile().from_any(file)
+        return self.upload_in_memory_object(file_name, file.data, folder)
+

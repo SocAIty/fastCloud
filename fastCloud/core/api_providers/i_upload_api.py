@@ -1,6 +1,7 @@
 import io
 from abc import ABC, abstractmethod
-from typing import Union, Optional
+from asyncio import gather
+from typing import Union, Optional, List
 
 from fastCloud.core.i_fast_cloud import FastCloud
 from fastCloud.core.api_providers.HTTPClientManager import HTTPClientManager
@@ -37,7 +38,7 @@ class BaseUploadAPI(FastCloud, ABC):
         return {"Authorization": f"Bearer {self.api_key}"}
 
     @abstractmethod
-    def _process_upload_response(self, response: Response) -> str:
+    def _process_upload_response(self, response: Union[Response, List[Response]]) -> Union[str, List[str]]:
         """Process the upload response to extract the file URL.
 
         Args:
@@ -68,38 +69,54 @@ class BaseUploadAPI(FastCloud, ABC):
         file.save(save_path)
         return save_path
 
-    def upload(self, file: Union[bytes, io.BytesIO, MediaFile, str], *args, **kwargs) -> str:
+    def upload(self, file: Union[bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs) -> Union[str, List[str]]:
         """Upload a file synchronously.
 
         Args:
-            file: The file to upload.
+            file: The file(s) to upload.
 
         Returns:
-            str: URL of the uploaded file.
+            str: the URL or a list of URLs of the uploaded file(s).
         """
+        if not isinstance(file, list):
+            file = [file]
+
+        file = [MediaFile().from_any(f) for f in file]
+
         with self.http_client.get_client() as client:
-            response = client.post(
-                url=self.upload_endpoint,
-                files={"content": file.to_httpx_send_able_tuple()},
-                headers=self.get_auth_headers(),
-                timeout=60
-            )
+            for f in file:
+                response = client.post(
+                    url=self.upload_endpoint,
+                    files={"content": f.to_httpx_send_able_tuple()},
+                    headers=self.get_auth_headers(),
+                    timeout=60
+                )
             return self._process_upload_response(response)
 
-    async def upload_async(self, file: Union[bytes, io.BytesIO, MediaFile, str], *args, **kwargs) -> str:
+    async def upload_async(self, file: Union[bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs) -> Union[str, List[str]]:
         """Upload a file asynchronously.
 
         Args:
-            file: The file to upload.
+            file: The file(s) to upload.
 
         Returns:
             str: URL of the uploaded file.
         """
+        if not isinstance(file, list):
+            file = [file]
+
+        file = [MediaFile().from_any(f) for f in file]
+
         async with self.http_client.get_async_client() as client:
-            response = await client.post(
-                url=self.upload_endpoint,
-                files={"content": file.to_httpx_send_able_tuple()},
-                headers=self.get_auth_headers(),
-                timeout=60
-            )
-            return self._process_upload_response(response)
+            uploads = [
+                client.post(
+                    url=self.upload_endpoint,
+                    files={"content": f.to_httpx_send_able_tuple()},
+                    headers=self.get_auth_headers(),
+                    timeout=60
+                )
+                for f in file
+            ]
+            responses = await gather(*uploads)
+
+            return self._process_upload_response(responses)

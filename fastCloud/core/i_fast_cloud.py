@@ -1,5 +1,5 @@
 import io
-from typing import Union
+from typing import Union, List
 
 from media_toolkit import MediaFile
 
@@ -8,18 +8,18 @@ class FastCloud:
     """
     This is the interface for cloud storage services. Implement this interface to add a new cloud storage provider.
     """
-    def upload(self, file: Union[bytes, io.BytesIO, MediaFile, str], *args, **kwargs) -> str:
+    def upload(self, file: Union[bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs) -> Union[str, List[str]]:
         """
         Uploads a file to the cloud.
-        :param file: The file data to upload. Is parsed to MediaFile if not already.
+        :param file: The file(s) data to upload. Each file is parsed to MediaFile if it is not already.
         :return: The URL of the uploaded file.
         """
         raise NotImplementedError("Implement in subclass")
 
-    async def upload_async(self, file: Union[bytes, io.BytesIO, MediaFile, str], *args, **kwargs) -> str:
+    async def upload_async(self, file: Union[bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs) -> Union[str, List[str]]:
         """
         Uploads a file to the cloud asynchronously.
-        :param file: The file data to upload. Is parsed to MediaFile if not already.
+        :param file: The file(s) data to upload. Each file is parsed to MediaFile if it is not already.
         :return: The URL of the uploaded file.
         """
         raise NotImplementedError("Implement in subclass")

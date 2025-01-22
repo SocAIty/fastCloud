@@ -1,6 +1,7 @@
 import uuid
+from asyncio import gather
 from datetime import datetime, timedelta
-from typing import Union
+from typing import Union, List
 import io
 from urllib.parse import urlparse
 
@@ -9,6 +10,7 @@ from fastCloud.core.storage_providers.i_cloud_storage import CloudStorage
 try:
     from azure.core.exceptions import ResourceNotFoundError
     from azure.storage.blob import BlobServiceClient
+    from azure.storage.blob.aio import BlobServiceClient as AioBlobServiceClient
     from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 except ImportError:
     pass
@@ -34,39 +36,168 @@ class AzureBlobStorage(CloudStorage):
         if not sas_access_token and not connection_string:
             raise ValueError("Either a sas_access_token or a connection_string must be provided")
 
-        if sas_access_token:
-            self.blob_service_client = BlobServiceClient(account_url=sas_access_token)
-        elif connection_string:
-            self.blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+        self.sas_access_token = sas_access_token
+        self.connection_string = connection_string
+
+        self._blob_client = None
+        self._async_blob_client = None
+
+    def _get_blob_service_client(self, async_mode: bool = False):
+        """
+
+        :param sas_access_token:
+        :param connection_string:
+        :return:
+        """
+
+        if self.sas_access_token:
+            if async_mode:
+                if not self._async_blob_client:
+                    self._async_blob_client = AioBlobServiceClient(account_url=self.sas_access_token)
+                return self._async_blob_client
+
+            if not self._blob_client:
+                self._blob_client = BlobServiceClient(account_url=self.sas_access_token)
+            return self._blob_client
+
+        elif self.connection_string:
+            if async_mode:
+                if not self._async_blob_client:
+                    self._async_blob_client = AioBlobServiceClient.from_connection_string(self.connection_string)
+                return self._async_blob_client
+
+            if not self._blob_client:
+                self._blob_client = BlobServiceClient.from_connection_string(self.connection_string)
+            return self._blob_client
 
     def upload(
             self,
-            file: Union[bytes, io.BytesIO, MediaFile, str],
-            file_name: str = None,
+            file: Union[bytes, io.BytesIO, MediaFile, str, list],
+            file_name: Union[str, list] = None,
             folder: str = None
-    ) -> str:
+    ) -> Union[str, List[str]]:
+        """
+        Upload a file to Azure Blob Storage.
 
+        Args:
+            file: The file(s) to upload - can be bytes, BytesIO, MediaFile, or a file path string
+            file_name: Optional name(s) for the file. If None, a UUID will be generated for each one.
+            folder: The container name in Azure Blob Storage (required)
+
+        Returns:
+            str: The URL(s) of the uploaded blob(s)
+
+        Raises:
+            ValueError: If folder (container name) is not provided
+        """
         if folder is None:
             raise ValueError("Folder aka container name must be provided for Azure Blob upload")
 
-        if file_name is None:
-            file_name = uuid.uuid4()
+        if not isinstance(file, list):
+            file = [file]
 
-        file = MediaFile().from_any(file)
+        file = [MediaFile().from_any(f) for f in file]
 
-        blob_client = self.blob_service_client.get_blob_client(container=folder, blob=file_name)
+        # make sure file_name is a list
+        if not isinstance(file_name, list):
+            file_name = [file_name]
 
-        b = file.to_bytes()
-        blob_client.upload_blob(b, overwrite=True)
-        return blob_client.url
+        # safety check
 
 
-    def download(self, url: str, save_path: str = None) -> Union[MediaFile, None, str]:
+        # replace None with UUID
+        file_name = [
+            f if f is not None and isinstance(f, str) else str(uuid.uuid4())
+            for f in file_name
+        ]
+        # make file_name list have the same length as file(s)
+        # if too less entries fill with uuids if too many entries ignore additional ones
+        if len(file_name) != len(file):
+            file_name = [
+                file_name[i] if i < len(file_name) else str(uuid.uuid4())
+                for i in range(len(file))
+            ]
+
+        urls = []
+        for f, fn in zip(file, file_name):
+            blob_client = self._get_blob_service_client(async_mode=False).get_blob_client(container=folder, blob=fn)
+            b = f.to_bytes()
+            blob_client.upload_blob(b, overwrite=True)
+            urls.append(blob_client.url)
+
+        if len(urls) == 1:
+            return urls[0]
+
+        return urls
+
+    async def upload_async(
+            self,
+            file: Union[bytes, io.BytesIO, MediaFile, str, list],
+            file_name: str = None,
+            folder: str = None
+    ) -> Union[str, List[str]]:
+        """
+        Upload a file to Azure Blob Storage.
+
+        Args:
+            file: The file(s) to upload - can be bytes, BytesIO, MediaFile, or a file path string
+            file_name: Optional name(s) for the file. If None, a UUID will be generated for each one.
+            folder: The container name in Azure Blob Storage (required)
+
+        Returns:
+            str: The URL(s) of the uploaded blob(s)
+
+        Raises:
+            ValueError: If folder (container name) is not provided
+        """
+        if folder is None:
+            raise ValueError("Folder aka container name must be provided for Azure Blob upload")
+
+        if not isinstance(file, list):
+            file = [file]
+
+        file = [MediaFile().from_any(f) for f in file]
+
+        # make sure file_name is a list
+        if not isinstance(file_name, list):
+            file_name = [file_name]
+
+        # replace None with UUID
+        file_name = [
+            f if f is not None and isinstance(f, str) else str(uuid.uuid4())
+            for f in file_name
+        ]
+        # make file_name list have the same length as file(s)
+        # if too less entries fill with file_name_{i} if too many entries ignore additional ones
+        if len(file_name) != len(file):
+            file_name = [
+                file_name[i] if i < len(file_name) else f"file_name_{i}"
+                for i in range(len(file))
+            ]
+
+        jobs = []
+        urls = []
+        async with self._get_blob_service_client(async_mode=True) as bc:
+            for f, fn in zip(file, file_name):
+                blob_client = bc.get_blob_client(container=folder, blob=fn)
+                b = f.to_bytes()
+                up = blob_client.upload_blob(b, overwrite=True)
+                jobs.append(up)
+                urls.append(blob_client.url)
+
+        await gather(*jobs)
+
+        if len(urls) == 1:
+            return urls[0]
+
+        return urls
+
+    def download(self, url: str, save_path: str = None, *args, **kwargs) -> Union[MediaFile, None, str]:
         parsed_url = urlparse(url)
         container_name = parsed_url.path.split('/')[1]
         blob_name = '/'.join(parsed_url.path.split('/')[2:])
 
-        blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+        blob_client = self._get_blob_service_client(async_mode=False).get_blob_client(container=container_name, blob=blob_name)
 
         try:
             blob_data = blob_client.download_blob()
@@ -81,7 +212,7 @@ class AzureBlobStorage(CloudStorage):
             blob_data.readinto(f)
         return save_path
 
-    def delete(self, url: str) -> bool:
+    def delete(self, url: str, *args, **kwargs) -> bool:
         """
         Delete a file from the Azure Blob Storage.
         :param url: the url of the file to delete
@@ -91,7 +222,7 @@ class AzureBlobStorage(CloudStorage):
             parsed_url = urlparse(url)
             container_name = parsed_url.path.split('/')[1]
             blob_name = '/'.join(parsed_url.path.split('/')[2:])
-            blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+            blob_client = self._get_blob_service_client(async_mode=False).get_blob_client(container=container_name, blob=blob_name)
 
             blob_client.delete_blob()
             return True
@@ -116,16 +247,17 @@ class AzureBlobStorage(CloudStorage):
             blob_name = uuid.uuid4()
 
         try:
+            bc = self._get_blob_service_client(async_mode=False)
             sas_token = generate_blob_sas(
-                account_name=self.blob_service_client.account_name,
+                account_name=bc.account_name,
                 container_name=container,
                 blob_name=blob_name,
-                account_key=self.blob_service_client.credential.account_key,
+                account_key=bc.credential.account_key,
                 permission=BlobSasPermissions(write=True),
                 expiry=datetime.utcnow() + timedelta(minutes=time_limit)
             )
 
-            blob_url = self.blob_service_client.get_blob_client(container=container, blob=blob_name).url
+            blob_url = bc.get_blob_client(container=container, blob=blob_name).url
             return f"{blob_url}?{sas_token}"
 
         except Exception as e:
