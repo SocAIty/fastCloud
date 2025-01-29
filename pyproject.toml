@@ -13,7 +13,7 @@ authors = [
 license = { text = "GPLv3" }
 readme = "README.md"
 dependencies = [
-    "media-toolkit>=0.1.1",
+    "media-toolkit>=0.1.5",
 ]
 
 [project.optional-dependencies]
