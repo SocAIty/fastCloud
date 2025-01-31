@@ -44,7 +44,7 @@ class S3Storage(CloudStorage):
 
         self._boto_client = None
 
-    def get_boto_client(self) -> boto3.client:
+    def get_boto_client(self) -> 'boto3.client':
         """
         :returns: A boto3 client and transfer config for the bucket.
         """

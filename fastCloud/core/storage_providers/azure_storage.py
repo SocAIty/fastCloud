@@ -103,7 +103,7 @@ class AzureBlobStorage(CloudStorage):
             file_name = [file_name]
 
         # safety check
-
+        # ToDo: Add extensions depending on file type
 
         # replace None with UUID
         file_name = [

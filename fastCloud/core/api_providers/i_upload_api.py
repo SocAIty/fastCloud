@@ -6,7 +6,6 @@ from typing import Union, Optional, List
 from fastCloud.core.i_fast_cloud import FastCloud
 from fastCloud.core.api_providers.HTTPClientManager import HTTPClientManager
 from media_toolkit import MediaFile
-from media_toolkit.utils.dependency_requirements import requires
 
 try:
     import httpx
