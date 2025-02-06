@@ -1,3 +1,4 @@
+import logging
 import uuid
 from asyncio import gather
 from datetime import datetime, timedelta
@@ -42,14 +43,12 @@ class AzureBlobStorage(CloudStorage):
         self._blob_client = None
         self._async_blob_client = None
 
+        # changing logging level of azure.storage.blob to print only errors
+        self._blob_service_logger = logging.getLogger('azure.storage.blob')
+        self._blob_service_logger.setLevel(logging.ERROR)
+
     def _get_blob_service_client(self, async_mode: bool = False):
-        """
-
-        :param sas_access_token:
-        :param connection_string:
-        :return:
-        """
-
+        """Retrieve or create a BlobServiceClient."""
         if self.sas_access_token:
             if async_mode:
                 if not self._async_blob_client:
@@ -118,9 +117,19 @@ class AzureBlobStorage(CloudStorage):
                 for i in range(len(file))
             ]
 
+        blob_service_client = self._get_blob_service_client(async_mode=False)
+        # create container aka folder if it does not exist
+        #try:
+        #    container_client = blob_service_client.get_container_client(folder)
+        #    container_client.create_container(folder, exists_ok=True)
+        #except Exception as e:
+        #    container_client = None
+        #    pass # this is fine if the container already exists
+
         urls = []
         for f, fn in zip(file, file_name):
-            blob_client = self._get_blob_service_client(async_mode=False).get_blob_client(container=folder, blob=fn)
+            blob_client = blob_service_client.get_blob_client(container=folder, blob=file_name[0])
+
             b = f.to_bytes()
             blob_client.upload_blob(b, overwrite=True)
             urls.append(blob_client.url)
