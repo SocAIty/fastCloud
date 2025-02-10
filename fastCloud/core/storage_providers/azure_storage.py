@@ -118,13 +118,6 @@ class AzureBlobStorage(CloudStorage):
             ]
 
         blob_service_client = self._get_blob_service_client(async_mode=False)
-        # create container aka folder if it does not exist
-        #try:
-        #    container_client = blob_service_client.get_container_client(folder)
-        #    container_client.create_container(folder, exists_ok=True)
-        #except Exception as e:
-        #    container_client = None
-        #    pass # this is fine if the container already exists
 
         urls = []
         for f, fn in zip(file, file_name):
@@ -221,26 +214,121 @@ class AzureBlobStorage(CloudStorage):
             blob_data.readinto(f)
         return save_path
 
-    def delete(self, url: str, *args, **kwargs) -> bool:
+    def _parse_and_validate_url(self, url: str) -> tuple[str, str]:
         """
-        Delete a file from the Azure Blob Storage.
-        :param url: the url of the file to delete
-        :return: true if the file was deleted, false otherwise
+        Parse and validate a blob URL, extracting container and blob names.
+
+        Args:
+            url: The URL of the blob to parse
+
+        Returns:
+            tuple: (container_name, blob_name)
+
+        Raises:
+            ValueError: If the URL doesn't belong to this storage provider
+        """
+        parsed_url = urlparse(url)
+        container_name = parsed_url.path.split('/')[1]
+        blob_name = '/'.join(parsed_url.path.split('/')[2:])
+
+        service_client = self._get_blob_service_client(async_mode=False)
+        if service_client.url not in url:
+            raise ValueError("File does not belong to this storage provider.")
+
+        return container_name, blob_name
+
+    async def _delete_single_blob_async(self, url: str) -> bool:
+        """
+        Delete a single blob asynchronously.
+
+        Args:
+            url: The URL of the blob to delete
+
+        Returns:
+            bool: True if deletion was successful, False otherwise
         """
         try:
-            parsed_url = urlparse(url)
-            container_name = parsed_url.path.split('/')[1]
-            blob_name = '/'.join(parsed_url.path.split('/')[2:])
-            blob_client = self._get_blob_service_client(async_mode=False).get_blob_client(container=container_name, blob=blob_name)
-
-            blob_client.delete_blob()
-            return True
-        except ResourceNotFoundError as e:
+            container_name, blob_name = self._parse_and_validate_url(url)
+            async with self._get_blob_service_client(async_mode=True) as service_client:
+                blob_client = service_client.get_blob_client(
+                    container=container_name,
+                    blob=blob_name
+                )
+                await blob_client.delete_blob()
+                return True
+        except ResourceNotFoundError:
             print(f"The file {container_name}/{blob_name} was not found.")
             return False
         except Exception as e:
             print(f"An error occurred: {e}")
             return False
+
+    def _delete_single_blob_sync(self, url: str) -> bool:
+        """
+        Delete a single blob synchronously.
+
+        Args:
+            url: The URL of the blob to delete
+
+        Returns:
+            bool: True if deletion was successful, False otherwise
+        """
+        try:
+            container_name, blob_name = self._parse_and_validate_url(url)
+            service_client = self._get_blob_service_client(async_mode=False)
+            blob_client = service_client.get_blob_client(
+                container=container_name,
+                blob=blob_name
+            )
+            blob_client.delete_blob()
+            return True
+        except ResourceNotFoundError:
+            print(f"The file {container_name}/{blob_name} was not found.")
+            return False
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            return False
+
+    def delete(self, url: Union[str, List[str]], *args, **kwargs) -> Union[bool, List[bool]]:
+        """
+        Delete a file or list of files from Azure Blob Storage synchronously.
+
+        Args:
+            url: Single URL or list of URLs to delete
+
+        Returns:
+            Union[bool, List[bool]]: Result(s) of deletion operation(s)
+        """
+        if not url:
+            return False
+
+        if isinstance(url, str):
+            return self._delete_single_blob_sync(url)
+
+        if isinstance(url, list):
+            return [self._delete_single_blob_sync(u) for u in url]
+
+        return False
+
+    async def delete_async(self, url: Union[str, List[str]], *args, **kwargs) -> Union[bool, List[bool]]:
+        """
+        Delete a file or list of files from Azure Blob Storage asynchronously.
+        Args:
+            url: Single URL or list of URLs to delete
+        Returns:
+            Union[bool, List[bool]]: Result(s) of deletion operation(s)
+        """
+        if not url:
+            return False
+
+        if isinstance(url, str):
+            return await self._delete_single_blob_async(url)
+
+        if isinstance(url, list):
+            tasks = [self._delete_single_blob_async(u) for u in url]
+            return await gather(*tasks)
+
+        return False
 
     def create_temporary_upload_link(
             self, time_limit: int = 20, container: str = "upload", blob_name: str = None, **kwargs

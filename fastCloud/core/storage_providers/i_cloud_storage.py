@@ -1,5 +1,5 @@
 import io
-from typing import Union
+from typing import Union, List
 
 from fastCloud.core import FastCloud
 from media_toolkit import MediaFile
@@ -55,11 +55,19 @@ class CloudStorage(FastCloud):
         """
         raise NotImplementedError("Implement in subclass")
 
-    def delete(self, url: str, *args, **kwargs) -> bool:
+    def delete(self, url: Union[str, List[str]], *args, **kwargs) -> Union[bool, List[bool]]:
         """
-        Deletes a file from the cloud storage.
-        :param url: The URL of the file to delete.
-        :return: True if the file was deleted successfully
+        Deletes one or more file(s) from the cloud storage.
+        :param url: The URL or a list of URLs of the file(s) to delete.
+        :return: True if the file was deleted successfully or a list of booleans if multiple files were deleted.
+        """
+        raise NotImplementedError("Implement in subclass")
+
+    async def delete_async(self, url: Union[str, List[str]], *args, **kwargs) -> Union[bool, List[bool]]:
+        """
+        Deletes one or more file(s) from the cloud storage asynchronously.
+        :param url: The URL or a list of URLs of the file(s) to delete.
+        :return: True if the file was deleted successfully or a list of booleans if multiple files were deleted.
         """
         raise NotImplementedError("Implement in subclass")
 
