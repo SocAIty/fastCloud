@@ -7,13 +7,13 @@ name = "fastcloud"
 version = "0.0.5"
 description = "Upload and download files to common cloud providers like azure blob storage, s3 and more"
 requires-python = ">=3.8"
+license = { text = "GPLv3" }
 authors = [
     { name = "SocAIty" }
 ]
-license = { text = "GPLv3" }
 readme = "README.md"
 dependencies = [
-    "media-toolkit>=00.02.01",
+    "media-toolkit>=0.2.1"
 ]
 
 [project.optional-dependencies]
@@ -21,7 +21,7 @@ azure = [
     "azure-storage-blob",
     "httpx"
 ]
-S3 =[
+s3 =[
     "boto3"
 ]
 api_providers = [
@@ -33,6 +33,6 @@ full = [
     "httpx"
 ]
 
-
 [project.urls]
 Repository = "https://github.com/SocAIty/fastCloud"
+Homepage = "https://www.socaity.ai"
