@@ -121,7 +121,7 @@ class AzureBlobStorage(CloudStorage):
 
         urls = []
         for f, fn in zip(file, file_name):
-            blob_client = blob_service_client.get_blob_client(container=folder, blob=file_name[0])
+            blob_client = blob_service_client.get_blob_client(container=folder, blob=fn)
 
             b = f.to_bytes()
             blob_client.upload_blob(b, overwrite=True)

@@ -20,7 +20,7 @@ class SocaityUploadAPI(BaseUploadAPI):
         api_key (str): Socaity API key.
     """
 
-    def __init__(self, api_key: str, upload_endpoint="https://socaity.ai.api/v0/files", *args, **kwargs):
+    def __init__(self, api_key: str, upload_endpoint="https://api.socaity.ai/v0/files", *args, **kwargs):
         super().__init__(api_key=api_key, upload_endpoint=upload_endpoint, *args, **kwargs)
 
     async def _upload_to_temporary_url(self, client: AsyncClient, sas_url: str, file: MediaFile) -> None:
