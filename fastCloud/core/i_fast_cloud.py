@@ -1,26 +1,36 @@
 import io
 from typing import Union, List
 
-from media_toolkit import MediaFile
+from media_toolkit import MediaFile, MediaDict, MediaList
 
 
 class FastCloud:
     """
     This is the interface for cloud storage services. Implement this interface to add a new cloud storage provider.
     """
-    def upload(self, file: Union[bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs) -> Union[str, List[str]]:
+    def upload(
+            self, file: Union[MediaFile, MediaDict, MediaList,bytes, io.BytesIO, str, list, dict], *args, **kwargs
+    ) -> Union[str, List[str], dict]:
         """
-        Uploads a file to the cloud.
+        Upload one or more file(s) to the cloud.
         :param file: The file(s) data to upload. Each file is parsed to MediaFile if it is not already.
-        :return: The URL of the uploaded file.
+        :return:
+            In case of a single file: The URL of the uploaded file.
+            In case of multiple files: A list of URLs of the uploaded files.
+            In case of a dict: A dict with {key: url} pairs.
         """
         raise NotImplementedError("Implement in subclass")
 
-    async def upload_async(self, file: Union[bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs) -> Union[str, List[str]]:
+    async def upload_async(
+            self, file: Union[MediaFile, MediaDict, MediaList, bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs
+    ) -> Union[str, List[str]]:
         """
-        Uploads a file to the cloud asynchronously.
+        Upload one or more file(s) to the cloud.
         :param file: The file(s) data to upload. Each file is parsed to MediaFile if it is not already.
-        :return: The URL of the uploaded file.
+        :return:
+            In case of a single file: The URL of the uploaded file.
+            In case of multiple files: A list of URLs of the uploaded files.
+            In case of a dict: A dict with {key: url} pairs.
         """
         raise NotImplementedError("Implement in subclass")
 

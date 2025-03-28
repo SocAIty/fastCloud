@@ -55,7 +55,7 @@ class SocaityUploadAPI(BaseUploadAPI):
             response (Response): The HTTP response from Socaity.
 
         Returns:
-            str: A list of the temporary upload URL.
+            List[str]: A list of the temporary upload URL.
 
         Raises:
             Exception: If getting the temporary URL fails.
