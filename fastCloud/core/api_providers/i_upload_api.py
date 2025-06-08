@@ -1,6 +1,5 @@
 import io
 from abc import ABC, abstractmethod
-from asyncio import gather
 from typing import Union, Optional, List
 
 from fastCloud.core.i_fast_cloud import FastCloud
@@ -8,11 +7,9 @@ from fastCloud.core.api_providers.HTTPClientManager import HTTPClientManager
 from media_toolkit import MediaFile, MediaList, MediaDict
 
 try:
-    import httpx
-    from httpx import AsyncClient, Client, Response
-except:
+    from httpx import Response
+except Exception:
     pass
-
 
 
 class BaseUploadAPI(FastCloud, ABC):
@@ -105,7 +102,9 @@ class BaseUploadAPI(FastCloud, ABC):
         return uploaded_files
 
     async def upload_async(
-            self, file: Union[MediaFile, MediaDict, MediaList, bytes, io.BytesIO, str, list, dict], *args, **kwargs
+        self,
+        file: Union[MediaFile, MediaDict, MediaList, bytes, io.BytesIO, str, list, dict],
+        *args, **kwargs
     ) -> Union[str, List[str], dict]:
         """
         Upload one or more file(s) to the cloud.
