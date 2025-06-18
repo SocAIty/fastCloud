@@ -9,15 +9,14 @@ try:
 except:
     pass
 
+
 @requires("httpx")
 class ReplicateUploadAPI(BaseUploadAPI):
     """Replicate-specific implementation of the upload API.
-
     Args:
         upload_endpoint (str): The Replicate upload endpoint.
         api_key (str): Replicate API key.
     """
-
     def __init__(self, api_key: str, upload_endpoint: str = "https://api.replicate.com/v1/files", *args, **kwargs):
         super().__init__(api_key=api_key, upload_endpoint=upload_endpoint, *args, **kwargs)
 
