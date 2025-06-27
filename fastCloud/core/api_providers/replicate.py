@@ -4,9 +4,8 @@ from fastCloud.core.api_providers.i_upload_api import BaseUploadAPI
 from media_toolkit.utils.dependency_requirements import requires
 
 try:
-    import httpx
     from httpx import Response
-except:
+except ImportError:
     pass
 
 

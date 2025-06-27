@@ -7,10 +7,10 @@ from media_toolkit import MediaFile
 from media_toolkit.utils.dependency_requirements import requires
 
 try:
-    import httpx
     from httpx import Response, AsyncClient
-except:
+except ImportError:
     pass
+
 
 @requires("httpx")
 class SocaityUploadAPI(BaseUploadAPI):
