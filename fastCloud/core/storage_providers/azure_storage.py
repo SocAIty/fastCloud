@@ -18,7 +18,7 @@ except ImportError:
 
 try:
     import httpx
-except:
+except ImportError:
     pass
 
 
@@ -187,7 +187,7 @@ class AzureBlobStorage(CloudStorage):
                 jobs.append(up)
                 urls.append(blob_client.url)
 
-        await gather(*jobs)
+            await gather(*jobs)
 
         if len(urls) == 1:
             return urls[0]
@@ -350,7 +350,7 @@ class AzureBlobStorage(CloudStorage):
                 container_name=container,
                 blob_name=blob_name,
                 account_key=bc.credential.account_key,
-                permission=BlobSasPermissions(write=True),
+                permission=BlobSasPermissions(read=True, write=True, create=True),
                 expiry=datetime.utcnow() + timedelta(minutes=time_limit)
             )
 

@@ -157,4 +157,3 @@ class S3Storage(CloudStorage):
 
         file = MediaFile().from_any(file)
         return self.upload_in_memory_object(file_name, file.data, folder)
-
