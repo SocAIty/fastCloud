@@ -68,7 +68,7 @@ class AzureBlobStorage(FastCloud):
                 self._blob_client = BlobServiceClient.from_connection_string(self.connection_string)
             return self._blob_client
 
-    def _upload_files(self, files: Union[MediaFile, List[MediaFile]], folder: str) -> Union[str, List[str]]:
+    def _upload_files(self, files: Union[MediaFile, List[MediaFile]], folder: str, *args, **kwargs) -> Union[str, List[str]]:
         """
         Upload files to Azure Blob Storage.
         """
@@ -94,7 +94,7 @@ class AzureBlobStorage(FastCloud):
             return urls[0]
         return urls
 
-    async def _upload_files_async(self, files: Union[MediaFile, List[MediaFile]], folder: str) -> Union[str, List[str]]:
+    async def _upload_files_async(self, files: Union[MediaFile, List[MediaFile]], folder: str, *args, **kwargs) -> Union[str, List[str]]:
         """
         Upload files to Azure Blob Storage asynchronously.
         """
@@ -143,7 +143,9 @@ class AzureBlobStorage(FastCloud):
             raise ValueError("Folder aka container name must be provided for Azure Blob upload")
 
         # Use the base class implementation, passing folder as the first argument
-        return super().upload(file, folder, *args, **kwargs)
+        if folder is not None and kwargs.get('folder') is None:
+            kwargs['folder'] = folder
+        return super().upload(file, *args, **kwargs)
 
     async def upload_async(
             self,
@@ -164,7 +166,9 @@ class AzureBlobStorage(FastCloud):
             raise ValueError("Folder aka container name must be provided for Azure Blob upload")
 
         # Use the base class implementation, passing folder as the first argument
-        return await super().upload_async(file, folder, *args, **kwargs)
+        if folder is not None and kwargs.get('folder') is None:
+            kwargs['folder'] = folder
+        return await super().upload_async(file, *args, **kwargs)
 
     def download(self, url: str, save_path: str = None, *args, **kwargs) -> Union[MediaFile, None, str]:
         parsed_url = urlparse(url)
