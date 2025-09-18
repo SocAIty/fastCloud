@@ -14,22 +14,12 @@ authors = [
 readme = "README.md"
 dependencies = [
     "media-toolkit>=0.2.8"
+    "httpx
 ]
 
 [project.optional-dependencies]
 azure = [
     "azure-storage-blob",
-    "httpx"
-]
-s3 =[
-    "boto3"
-]
-api_providers = [
-    "httpx"
-]
-full = [
-    "azure-storage-blob",
-    "boto3",
     "httpx"
 ]
 

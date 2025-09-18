@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Test fastCloud",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/test/test.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder};${workspaceFolder}/../fastCloud;${workspaceFolder}/../media-toolkit;"
+            }
+        }
+    ]
+} 

@@ -2,11 +2,10 @@ import logging
 import uuid
 from asyncio import gather
 from datetime import datetime, timedelta
-from typing import Union, List
+from typing import Union, List, Any
 import io
 from urllib.parse import urlparse
-
-from fastCloud.core.storage_providers.i_cloud_storage import CloudStorage
+from fastCloud.core.i_fast_cloud import FastCloud
 
 try:
     from azure.core.exceptions import ResourceNotFoundError
@@ -22,11 +21,11 @@ except ImportError:
     pass
 
 
-from media_toolkit import MediaFile
+from media_toolkit import MediaFile, IMediaContainer, media_from_any
 from media_toolkit.utils.dependency_requirements import requires
 
 
-class AzureBlobStorage(CloudStorage):
+class AzureBlobStorage(FastCloud):
     @requires("azure.storage.blob")
     def __init__(self, sas_access_token: str = None, connection_string: str = None):
         """
@@ -69,119 +68,50 @@ class AzureBlobStorage(CloudStorage):
                 self._blob_client = BlobServiceClient.from_connection_string(self.connection_string)
             return self._blob_client
 
-    def upload(
-            self,
-            file: Union[bytes, io.BytesIO, MediaFile, str, list],
-            file_name: Union[str, list] = None,
-            folder: str = None
-    ) -> Union[str, List[str]]:
+    def _upload_files(self, files: Union[MediaFile, List[MediaFile]], folder: str) -> Union[str, List[str]]:
         """
-        Upload a file to Azure Blob Storage.
-
-        Args:
-            file: The file(s) to upload - can be bytes, BytesIO, MediaFile, or a file path string
-            file_name: Optional name(s) for the file. If None, a UUID will be generated for each one.
-            folder: The container name in Azure Blob Storage (required)
-
-        Returns:
-            str: The URL(s) of the uploaded blob(s)
-
-        Raises:
-            ValueError: If folder (container name) is not provided
+        Upload files to Azure Blob Storage.
         """
-        if folder is None:
-            raise ValueError("Folder aka container name must be provided for Azure Blob upload")
+        if not isinstance(files, (MediaFile, list)):
+            raise ValueError("files must be a MediaFile or list of MediaFile")
 
-        if not isinstance(file, list):
-            file = [file]
+        if not isinstance(files, list):
+            files = [files]
 
-        file = [MediaFile().from_any(f) for f in file]
-
-        # make sure file_name is a list
-        if not isinstance(file_name, list):
-            file_name = [file_name]
-
-        # safety check
-        # ToDo: Add extensions depending on file type
-
-        # replace None with UUID
-        file_name = [
-            f if f is not None and isinstance(f, str) else str(uuid.uuid4())
-            for f in file_name
-        ]
-        # make file_name list have the same length as file(s)
-        # if too less entries fill with uuids if too many entries ignore additional ones
-        if len(file_name) != len(file):
-            file_name = [
-                file_name[i] if i < len(file_name) else str(uuid.uuid4())
-                for i in range(len(file))
-            ]
-
+        # Upload Files
         blob_service_client = self._get_blob_service_client(async_mode=False)
-
         urls = []
-        for f, fn in zip(file, file_name):
-            blob_client = blob_service_client.get_blob_client(container=folder, blob=fn)
+        for f in files:
+            if not f.file_name or f.file_name == "" or f.file_name == "file":
+                f.file_name = str(uuid.uuid4())
 
+            blob_client = blob_service_client.get_blob_client(container=folder, blob=f.file_name)
             b = f.to_bytes()
             blob_client.upload_blob(b, overwrite=True)
             urls.append(blob_client.url)
 
         if len(urls) == 1:
             return urls[0]
-
         return urls
 
-    async def upload_async(
-            self,
-            file: Union[bytes, io.BytesIO, MediaFile, str, list],
-            file_name: str = None,
-            folder: str = None
-    ) -> Union[str, List[str]]:
+    async def _upload_files_async(self, files: Union[MediaFile, List[MediaFile]], folder: str) -> Union[str, List[str]]:
         """
-        Upload a file to Azure Blob Storage.
-
-        Args:
-            file: The file(s) to upload - can be bytes, BytesIO, MediaFile, or a file path string
-            file_name: Optional name(s) for the file. If None, a UUID will be generated for each one.
-            folder: The container name in Azure Blob Storage (required)
-
-        Returns:
-            str: The URL(s) of the uploaded blob(s)
-
-        Raises:
-            ValueError: If folder (container name) is not provided
+        Upload files to Azure Blob Storage asynchronously.
         """
-        if folder is None:
-            raise ValueError("Folder aka container name must be provided for Azure Blob upload")
+        if not isinstance(files, (MediaFile, list)):
+            raise ValueError("files must be a MediaFile or list of MediaFile")
 
-        if not isinstance(file, list):
-            file = [file]
-
-        file = [MediaFile().from_any(f) for f in file]
-
-        # make sure file_name is a list
-        if not isinstance(file_name, list):
-            file_name = [file_name]
-
-        # replace None with UUID
-        file_name = [
-            f if f is not None and isinstance(f, str) else str(uuid.uuid4())
-            for f in file_name
-        ]
-        # make file_name list have the same length as file(s)
-        # if too less entries fill with file_name_{i} if too many entries ignore additional ones
-        if len(file_name) != len(file):
-            file_name = [
-                file_name[i] if i < len(file_name) else f"file_name_{i}"
-                for i in range(len(file))
-            ]
+        if not isinstance(files, list):
+            files = [files]
 
         jobs = []
         urls = []
         async with self._get_blob_service_client(async_mode=True) as bc:
-            for f, fn in zip(file, file_name):
-                blob_client = bc.get_blob_client(container=folder, blob=fn)
+            for f in files:
+                if not f.file_name or f.file_name == "" or f.file_name == "file":
+                    f.file_name = str(uuid.uuid4())
+
+                blob_client = bc.get_blob_client(container=folder, blob=f.file_name)
                 b = f.to_bytes()
                 up = blob_client.upload_blob(b, overwrite=True)
                 jobs.append(up)
@@ -193,6 +123,48 @@ class AzureBlobStorage(CloudStorage):
             return urls[0]
 
         return urls
+
+    def upload(
+            self,
+            file: Union[IMediaContainer, MediaFile, Any],
+            folder: str = None,
+            *args, **kwargs
+    ) -> Union[str, List[str], dict]:
+        """
+        Upload one or more file(s) to Azure Blob Storage.
+        :param file: The file(s) to upload. The input is parsed to MediaFile if it is not already.
+        :param folder: The container name in Azure Blob Storage (required)
+        :return:
+            In case of input was a single file: The URL of the uploaded file.
+            In case of input was list/MediaList of files: A list of URLs of the uploaded files.
+            In case of input was dict/MediaDict of files: A dict with {key: url} pairs.
+        """
+        if folder is None:
+            raise ValueError("Folder aka container name must be provided for Azure Blob upload")
+
+        # Use the base class implementation, passing folder as the first argument
+        return super().upload(file, folder, *args, **kwargs)
+
+    async def upload_async(
+            self,
+            file: Union[IMediaContainer, MediaFile, Any],
+            folder: str = None,
+            *args, **kwargs
+    ) -> Union[str, List[str], dict]:
+        """
+        Upload one or more file(s) to Azure Blob Storage asynchronously.
+        :param file: The file(s) to upload. The input is parsed to MediaFile if it is not already.
+        :param folder: The container name in Azure Blob Storage (required)
+        :return:
+            In case of input was a single file: The URL of the uploaded file.
+            In case of input was list/MediaList of files: A list of URLs of the uploaded files.
+            In case of input was dict/MediaDict of files: A dict with {key: url} pairs.
+        """
+        if folder is None:
+            raise ValueError("Folder aka container name must be provided for Azure Blob upload")
+
+        # Use the base class implementation, passing folder as the first argument
+        return await super().upload_async(file, folder, *args, **kwargs)
 
     def download(self, url: str, save_path: str = None, *args, **kwargs) -> Union[MediaFile, None, str]:
         parsed_url = urlparse(url)
@@ -208,7 +180,7 @@ class AzureBlobStorage(CloudStorage):
             return None
 
         if save_path is None:
-            return MediaFile(file_name=url).from_bytes(blob_data.readall())
+            return media_from_any(blob_data.readall())
 
         with open(save_path, "wb") as f:
             blob_data.readinto(f)
@@ -306,6 +278,7 @@ class AzureBlobStorage(CloudStorage):
             return self._delete_single_blob_sync(url)
 
         if isinstance(url, list):
+            url = list(set(url))
             return [self._delete_single_blob_sync(u) for u in url]
 
         return False
@@ -325,6 +298,7 @@ class AzureBlobStorage(CloudStorage):
             return await self._delete_single_blob_async(url)
 
         if isinstance(url, list):
+            url = list(set(url))
             tasks = [self._delete_single_blob_async(u) for u in url]
             return await gather(*tasks)
 
@@ -397,5 +371,3 @@ class AzureBlobStorage(CloudStorage):
         except Exception as e:
             print(f"An error occurred during async SAS upload: {e}")
             return False
-
-

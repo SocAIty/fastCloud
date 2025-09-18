@@ -1,10 +1,10 @@
-import io
 from abc import ABC, abstractmethod
 from typing import Union, Optional, List
+import asyncio
 
 from fastCloud.core.i_fast_cloud import FastCloud
 from fastCloud.core.api_providers.HTTPClientManager import HTTPClientManager
-from media_toolkit import MediaFile, MediaList, MediaDict
+from media_toolkit import MediaFile, media_from_any
 
 try:
     from httpx import Response
@@ -34,7 +34,7 @@ class BaseUploadAPI(FastCloud, ABC):
         return {"Authorization": f"Bearer {self.api_key}"}
 
     @abstractmethod
-    def _process_upload_response(self, response: Union[Response, List[Response]]) -> Union[str, List[str]]:
+    def _process_upload_response(self, response: Response) -> str:
         """Process the upload response to extract the file URL.
 
         Args:
@@ -58,83 +58,62 @@ class BaseUploadAPI(FastCloud, ABC):
         Returns:
             Union[MediaFile, str]: MediaFile object or save path if specified.
         """
-        file = MediaFile(file_name=url).from_url(url, headers=self.get_auth_headers())
+        file = media_from_any(url, headers=self.get_auth_headers())
         if save_path is None:
             return file
 
         file.save(save_path)
         return save_path
 
-    def upload(
-            self, file: Union[MediaFile, MediaDict, MediaList, bytes, io.BytesIO, str, list, dict], *args, **kwargs
-    ) -> Union[str, List[str], dict]:
+    def _upload_files(self, files: Union[MediaFile, List[MediaFile]], *args, **kwargs) -> Union[str, List[str]]:
         """
-        Upload one or more file(s) to the cloud.
-        :param file: The file(s) data to upload. Each file is parsed to MediaFile if it is not already.
-        :return:
-            In case of a single file: The URL of the uploaded file.
-            In case of multiple files: A list of URLs of the uploaded files.
-            In case of a dict: A dict with {key: url} pairs.
+        Upload a list of files to the cloud.
+        :param files: The file or list of file to upload.
+        :return: The URL(s) of the uploaded file(s).
         """
-        upload_data = MediaDict(download_files=False).from_any(file)
-        uploaded_files = {}
-        
+        if not isinstance(files, (MediaFile, list)):
+            raise ValueError("files must be a MediaFile or list of MediaFile")
+
+        if not isinstance(files, list):
+            files = [files]
+
         with self.http_client.get_client() as client:
-            for k, f in upload_data.items():
-                if isinstance(f, (MediaDict, dict)):
-                    # Recursively handle nested dictionaries
-                    uploaded_files[k] = self.upload(f, *args, **kwargs)
-                elif isinstance(f, (MediaList, list)):
-                    # Handle lists by uploading each item
-                    uploaded_files[k] = self.upload(f, *args, **kwargs)
-                else:
-                    # Handle single file
-                    response = client.post(
-                        url=self.upload_endpoint,
-                        files={"content": f.to_httpx_send_able_tuple()},
-                        headers=self.get_auth_headers(),
-                        timeout=60)
-                    uploaded_files[k] = self._process_upload_response(response)
+            # Handle single file
+            uploaded_files = []
+            for file in files:
+                response = client.post(
+                    url=self.upload_endpoint,
+                    files={"content": file.to_httpx_send_able_tuple()},
+                    headers=self.get_auth_headers(),
+                    timeout=60
+                )
+                processed_response = self._process_upload_response(response)
+                uploaded_files.append(processed_response)
 
-        # If input was a single file, return just the URL
-        if len(uploaded_files) == 1 and not isinstance(file, (MediaDict, dict, MediaList, list)):
-            return list(uploaded_files.values())[0]
-        return uploaded_files
+        return uploaded_files if len(uploaded_files) > 1 else uploaded_files[0]
 
-    async def upload_async(
-        self,
-        file: Union[MediaFile, MediaDict, MediaList, bytes, io.BytesIO, str, list, dict],
-        *args, **kwargs
-    ) -> Union[str, List[str], dict]:
+    async def _upload_files_async(self, files: Union[MediaFile, List[MediaFile]], *args, **kwargs) -> Union[str, List[str]]:
         """
-        Upload one or more file(s) to the cloud.
-        :param file: The file(s) data to upload. Each file is parsed to MediaFile if it is not already.
-        :return:
-            In case of a single file: The URL of the uploaded file.
-            In case of multiple files: A list of URLs of the uploaded files.
-            In case of a dict: A dict with {key: url} pairs.
+        Upload a list of files to the cloud asynchronously.
+        :param files: The list of files to upload.
+        :return: The URL of the uploaded file.
         """
-        upload_data = MediaDict(download_files=False).from_any(file)
-        uploaded_files = {}
+        if not isinstance(files, (MediaFile, list)):
+            raise ValueError("files must be a MediaFile or list of MediaFile")
+
+        if not isinstance(files, list):
+            files = [files]
 
         async with self.http_client.get_async_client() as client:
-            for k, f in upload_data.items():
-                if isinstance(f, (MediaDict, dict)):
-                    # Recursively handle nested dictionaries
-                    uploaded_files[k] = await self.upload_async(f, *args, **kwargs)
-                elif isinstance(f, (MediaList, list)):
-                    # Handle lists by uploading each item
-                    uploaded_files[k] = await self.upload_async(f, *args, **kwargs)
-                else:
-                    # Handle single file
-                    response = await client.post(
-                        url=self.upload_endpoint,
-                        files={"content": f.to_httpx_send_able_tuple()},
-                        headers=self.get_auth_headers(),
-                        timeout=60)
-                    uploaded_files[k] = self._process_upload_response(response)
+            async_requests = [
+                client.post(
+                    url=self.upload_endpoint,
+                    files={"content": file.to_httpx_send_able_tuple()},
+                    headers=self.get_auth_headers(),
+                    timeout=60
+                ) for file in files
+            ]
+            responses = await asyncio.gather(*async_requests)
 
-        # If input was a single file, return just the URL
-        if len(uploaded_files) == 1 and not isinstance(file, (MediaDict, dict, MediaList, list)):
-            return list(uploaded_files.values())[0]
-        return uploaded_files
+        uploaded_files = [self._process_upload_response(response) for response in responses]
+        return uploaded_files if len(uploaded_files) > 1 else uploaded_files[0]

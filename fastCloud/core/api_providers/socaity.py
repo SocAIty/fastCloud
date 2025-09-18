@@ -48,7 +48,7 @@ class SocaityUploadAPI(BaseUploadAPI):
         if response.status_code != 201:
             raise Exception(f"Failed to upload to temporary URL {sas_url}. Response: {response.text}")
 
-    def _process_upload_response(self, response: Union[Response, List[Response]]) -> List[str]:
+    def _process_upload_response(self, response: Response) -> List[str]:
         """Process Socaity-specific response format.
 
         Args:
@@ -60,16 +60,10 @@ class SocaityUploadAPI(BaseUploadAPI):
         Raises:
             Exception: If getting the temporary URL fails.
         """
-        if not isinstance(response, list):
-            response = [response]
+        if response.status_code not in [200, 201]:
+            raise Exception("Failed to get temporary upload URL")
 
-        urls = []
-        for resp in response:
-            if resp.status_code not in [200, 201]:
-                raise Exception("Failed to get temporary upload URL")
-            urls.extend(resp.json())
-
-        return urls
+        return response.json()
 
     async def upload_async(self, file: Union[bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs) \
             -> Union[str, list[str]]:
