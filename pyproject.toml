@@ -13,7 +13,7 @@ authors = [
 ]
 readme = "README.md"
 dependencies = [
-    "media-toolkit>=0.2.17"
+    "media-toolkit>=0.2.17",
     "httpx
 ]
 
