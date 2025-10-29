@@ -1,10 +1,10 @@
 import asyncio
-import io
 from typing import Union, List
 
 from fastCloud.core.api_providers.i_upload_api import BaseUploadAPI
 from media_toolkit import MediaFile
 from media_toolkit.utils.dependency_requirements import requires
+import os
 
 try:
     from httpx import Response, AsyncClient
@@ -21,6 +21,8 @@ class SocaityUploadAPI(BaseUploadAPI):
     """
 
     def __init__(self, api_key: str, upload_endpoint="https://api.socaity.ai/v1/sdk/files", *args, **kwargs):
+        if not api_key:
+            api_key = os.getenv("SOCAITY_API_KEY", None)
         super().__init__(api_key=api_key, upload_endpoint=upload_endpoint, *args, **kwargs)
 
     async def _upload_to_temporary_url(self, client: AsyncClient, sas_url: str, file: MediaFile) -> None:
@@ -65,7 +67,7 @@ class SocaityUploadAPI(BaseUploadAPI):
 
         return response.json()
 
-    async def upload_async(self, file: Union[bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs) \
+    async def _upload_async(self, file: Union[MediaFile, List[MediaFile]], *args, **kwargs) \
             -> Union[str, list[str]]:
         """Upload one ore more files using Socaity's two-step upload process.
         Args:
@@ -106,5 +108,3 @@ class SocaityUploadAPI(BaseUploadAPI):
                 return sas_urls[0]
 
             return sas_urls
-
-

@@ -1,5 +1,5 @@
 from typing import Union, List
-
+import os
 from fastCloud.core.api_providers.i_upload_api import BaseUploadAPI
 from media_toolkit.utils.dependency_requirements import requires
 
@@ -17,6 +17,8 @@ class ReplicateUploadAPI(BaseUploadAPI):
         api_key (str): Replicate API key.
     """
     def __init__(self, api_key: str, upload_endpoint: str = "https://api.replicate.com/v1/files", *args, **kwargs):
+        if not api_key:
+            api_key = os.getenv("REPLICATE_API_KEY", None)
         super().__init__(api_key=api_key, upload_endpoint=upload_endpoint, *args, **kwargs)
 
     def _process_upload_response(self, response: Response) -> Union[str, List[str]]:
