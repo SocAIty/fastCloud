@@ -1,12 +1,12 @@
-# inspired by: https://github.com/runpod/runpod-python/blob/main/runpod/serverless/utils/rp_upload.py
 import io
 import multiprocessing
 import time
 import uuid
-from typing import Optional, Union
+import os
+from typing import Optional, Union, List
 from urllib.parse import urlparse
 
-from media_toolkit import MediaFile
+from media_toolkit import MediaFile, MediaList
 from media_toolkit.utils.dependency_requirements import requires
 
 from fastCloud.core.storage_providers.i_cloud_storage import CloudStorage
@@ -21,7 +21,6 @@ except ImportError:
 
 from tqdm import tqdm
 
-
 class S3Storage(CloudStorage):
     @requires("boto3")
     def __init__(
@@ -30,7 +29,6 @@ class S3Storage(CloudStorage):
             access_key_id: str = None,
             access_key_secret: str = None,
     ):
-
         self.endpoint_url = endpoint_url
         self.access_key_id = access_key_id
         self.secret_access_key = access_key_secret
@@ -45,27 +43,19 @@ class S3Storage(CloudStorage):
         self._boto_client = None
 
     def get_boto_client(self) -> 'boto3.client':
-        """
-        :returns: A boto3 client and transfer config for the bucket.
-        """
-        # Return the client if it already exists. Caching = Faster.
         if self._boto_client is not None:
             return self._boto_client
 
-        if self.endpoint_url is None or self.access_key_id is None or self.secret_access_key is None:
-            raise Exception("No or invalid bucket endpoint")
+        if not all([self.endpoint_url, self.access_key_id, self.secret_access_key]):
+            raise Exception("No or invalid bucket endpoint configuration")
 
-        # Extract region from the endpoint URL
         region = self.extract_region_from_url(self.endpoint_url)
         bucket_session = session.Session()
         boto_config = Config(
             signature_version='s3v4',
-            retries={
-                'max_attempts': 3,
-                'mode': 'standard'
-            }
+            retries={'max_attempts': 3, 'mode': 'standard'}
         )
-        boto_client = bucket_session.client(
+        self._boto_client = bucket_session.client(
             's3',
             endpoint_url=self.endpoint_url,
             aws_access_key_id=self.access_key_id,
@@ -74,20 +64,15 @@ class S3Storage(CloudStorage):
             region_name=region
         )
 
-        return boto_client
+        return self._boto_client
 
     def upload_in_memory_object(
             self,
             file_name: str,
             file_data: Union[bytes, io.BytesIO],
-            bucket_name: Optional[str] = None
-    ) -> str:  # pragma: no cover
-        """
-        Uploads an in-memory object (bytes|BytesIO) to bucket storage and returns a presigned URL.
-        :param file_name: The name of the file.
-        :param file_data: The file data to upload.
-        :param bucket_name: The name of the bucket to upload to (like directory name). If none: month-year is used.
-        """
+            bucket_name: Optional[str] = None,
+            content_type: str = "application/octet-stream"
+    ) -> str:
         boto_client = self.get_boto_client()
 
         if not bucket_name:
@@ -105,56 +90,98 @@ class S3Storage(CloudStorage):
                 file_data,
                 bucket_name,
                 file_name,
+                ExtraArgs={
+                    'ContentType': content_type,
+                    'ACL': 'public-read' # Change to 'private' if needed
+                },
                 Config=self.transfer_config,
                 Callback=progress_bar.update
             )
-        # Reset the file pointer
-        file_data.seek(0)
 
-        presigned_url = boto_client.generate_presigned_url(
+        return boto_client.generate_presigned_url(
             'get_object',
-            Params={
-                'Bucket': bucket_name,
-                'Key': file_name
-            },
+            Params={'Bucket': bucket_name, 'Key': file_name},
             ExpiresIn=604800
         )
 
-        return presigned_url
-
-    @staticmethod
-    def extract_region_from_url(endpoint_url):
-        """
-        Extracts the region from the endpoint URL.
-        """
-        parsed_url = urlparse(endpoint_url)
-        # AWS/backblaze S3-like URL
-        if '.s3.' in endpoint_url:
-            return endpoint_url.split('.s3.')[1].split('.')[0]
-
-        # DigitalOcean Spaces-like URL
-        if parsed_url.netloc.endswith('.digitaloceanspaces.com'):
-            return endpoint_url.split('.')[1].split('.digitaloceanspaces.com')[0]
-
-        return None
-
     def download_file(self, url: str, save_path: str = None) -> str:
+        """
+        Downloads a file by parsing the S3 URL to find the Bucket and Key.
+        """
         boto_client = self.get_boto_client()
-        # consider to use in memory download
-        # boto_client.download_fileobj(url,)
-        boto_client.download_file(url=url, destfile=save_path)
+        
+        # Parse URL to extract Bucket and Key
+        parsed = urlparse(url)
+        path_parts = parsed.path.lstrip('/').split('/')
+        bucket = path_parts[0]
+        key = '/'.join(path_parts[1:])
+        
+        # Remove query parameters (like signature) from key if present
+        key = key.split('?')[0]
+
+        if not save_path:
+            save_path = os.path.join(os.getcwd(), os.path.basename(key))
+
+        boto_client.download_file(bucket, key, save_path)
         return save_path
 
     def upload(
             self,
-            file: Union[bytes, io.BytesIO, MediaFile, str],
-            file_name: str = None,
+            file: Union[bytes, io.BytesIO, MediaFile, MediaList, str, list],
+            file_name: Union[str, list] = None,
             folder: Optional[str] = None
-    ) -> Union[str, None]:
+    ) -> Union[str, List[str]]:
+        # 1. Normalize input to list of MediaFiles
+        if isinstance(file, MediaList):
+            files_to_upload = file._media_files
+        elif not isinstance(file, list):
+            files_to_upload = [file]
+        else:
+            files_to_upload = file
 
+        media_files = [
+            f if isinstance(f, MediaFile) else MediaFile().from_any(f)
+            for f in files_to_upload
+        ]
+
+        # 2. Normalize file_names
         if file_name is None:
-            file_name = uuid.uuid4()
+            provided_names = []
+        elif not isinstance(file_name, list):
+            provided_names = [file_name]
+        else:
+            provided_names = file_name
 
-        file = MediaFile().from_any(file)
-        return self.upload_in_memory_object(file_name, file.data, folder)
+        # 3. Resolve names with Extensions
+        final_urls = []
+        for i, mf in enumerate(media_files):
+            # Check for name in: 1. Args, 2. MediaFile object, 3. UUID fallback
+            if i < len(provided_names) and provided_names[i]:
+                name = provided_names[i]
+            elif mf.file_name and mf.file_name not in ["file", "media_file"]:
+                name = mf.file_name
+            else:
+                ext = mf.extension
+                name = f"{uuid.uuid4()}{'.' + ext if ext else ''}"
 
+            # Ensure we have the right buffer
+            data = io.BytesIO(mf.to_bytes())
+            
+            url = self.upload_in_memory_object(
+                file_name=name, 
+                file_data=data, 
+                bucket_name=folder, 
+                content_type=mf.content_type
+            )
+            final_urls.append(url)
+
+        return final_urls[0] if len(final_urls) == 1 else final_urls
+
+    @staticmethod
+    def extract_region_from_url(endpoint_url):
+        parsed_url = urlparse(endpoint_url)
+        if '.s3.' in endpoint_url:
+            return endpoint_url.split('.s3.')[1].split('.')[0]
+        if parsed_url.netloc.endswith('.digitaloceanspaces.com'):
+            return endpoint_url.split('.')[1].split('.digitaloceanspaces.com')[0]
+        return 'us-east-1' # Default fallback
