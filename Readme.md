@@ -71,6 +71,6 @@ Missing a cloud provider?
 Missing a feature? 
 - Feel free to raise an issue. Better tough: just implement it and make a PR.
 
-Also have a look at [media-toolkit](https://github.com/SocAIty/media-toolkit), [FastTaskAPI](https://github.com/SocAIty/FastTaskAPI) for your personal cloud solution.
+Also have a look at [media-toolkit](https://github.com/SocAIty/media-toolkit), [APIPod](https://github.com/SocAIty/APIPod) for your personal cloud solution.
 
 ### SUPPORT SOCAITY BY LEAVING A STAR
