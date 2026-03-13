@@ -7,7 +7,8 @@ Simplistic unified interface for uploading and downloading files to the cloud.
 
 Supports
 - Azure Blob Storage  :white_check_mark:
-- S3 Storages (Amazon, ...) :question:
+- Socaity Upload API
+- Replicate Upload API
 
 
 # Installation
@@ -15,26 +16,21 @@ Supports
 Install via pypi with:
 ```bash
 # to support all cloud providers
-pip install fastcloud[full]
-# only support azure blob storage
+pip install fastcloud
+# support azure blob storage
 pip install fastcloud[azure]
-# only support s3
-pip install fastcloud[s3]
 ```
 
 Or check-out the repository and work from there.
 
 # Usage
 
-## Init storage  (Azure blob, S3 ...) 
+## Init storage (Azure Blob)
 To directly up and download files to the cloud storage provider, you can use the following code snippets.
 ```python 
-from fastcloud import AzureBlobStorage, S3Storage, create_cloud_storage
-# Create container of your choice
+from fastcloud import AzureBlobStorage
+# Create storage client
 cloud_store = AzureBlobStorage(connection_string="DefaultEndpointsProtocol=https;AccountName=...;AccountKey=...;EndpointSuffix=...")
-cloud_store = S3Storage(access_key_id, secret_access_key, region_name)
-# Or use the factory to be more flexible
-cloud_store = create_cloud_storage(... your credentials ...)
 ```
 Recommendation: Use environment variables to store the cloud storage access tokens / credentials.
 
@@ -68,8 +64,6 @@ How to setup Azure Blob Storage and get connection string?
 
 
 # Contribute
-
-Test and implement S3 features.
 
 Missing a cloud provider?
 - Just implement the missing class in core/providers with inheritance of the interface i_cloud_storage and make a pull request
