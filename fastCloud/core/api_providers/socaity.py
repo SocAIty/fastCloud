@@ -1,16 +1,16 @@
 import asyncio
-import io
 from typing import Union, List
 
 from fastCloud.core.api_providers.i_upload_api import BaseUploadAPI
 from media_toolkit import MediaFile
 from media_toolkit.utils.dependency_requirements import requires
+import os
 
 try:
-    import httpx
     from httpx import Response, AsyncClient
-except:
+except ImportError:
     pass
+
 
 @requires("httpx")
 class SocaityUploadAPI(BaseUploadAPI):
@@ -21,6 +21,8 @@ class SocaityUploadAPI(BaseUploadAPI):
     """
 
     def __init__(self, api_key: str, upload_endpoint="https://api.socaity.ai/v1/sdk/files", *args, **kwargs):
+        if not api_key:
+            api_key = os.getenv("SOCAITY_API_KEY", None)
         super().__init__(api_key=api_key, upload_endpoint=upload_endpoint, *args, **kwargs)
 
     async def _upload_to_temporary_url(self, client: AsyncClient, sas_url: str, file: MediaFile) -> None:
@@ -48,7 +50,7 @@ class SocaityUploadAPI(BaseUploadAPI):
         if response.status_code != 201:
             raise Exception(f"Failed to upload to temporary URL {sas_url}. Response: {response.text}")
 
-    def _process_upload_response(self, response: Union[Response, List[Response]]) -> List[str]:
+    def _process_upload_response(self, response: Response) -> List[str]:
         """Process Socaity-specific response format.
 
         Args:
@@ -60,18 +62,12 @@ class SocaityUploadAPI(BaseUploadAPI):
         Raises:
             Exception: If getting the temporary URL fails.
         """
-        if not isinstance(response, list):
-            response = [response]
+        if response.status_code not in [200, 201]:
+            raise Exception("Failed to get temporary upload URL")
 
-        urls = []
-        for resp in response:
-            if resp.status_code not in [200, 201]:
-                raise Exception("Failed to get temporary upload URL")
-            urls.extend(resp.json())
+        return response.json()
 
-        return urls
-
-    async def upload_async(self, file: Union[bytes, io.BytesIO, MediaFile, str, list], *args, **kwargs) \
+    async def _upload_async(self, file: Union[MediaFile, List[MediaFile]], *args, **kwargs) \
             -> Union[str, list[str]]:
         """Upload one ore more files using Socaity's two-step upload process.
         Args:
@@ -112,5 +108,3 @@ class SocaityUploadAPI(BaseUploadAPI):
                 return sas_urls[0]
 
             return sas_urls
-
-

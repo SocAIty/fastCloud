@@ -1,9 +1,8 @@
-from typing import AsyncContextManager, ContextManager
+from typing import Generator, AsyncGenerator
 from contextlib import asynccontextmanager, contextmanager
 
 try:
-    import httpx
-    from httpx import AsyncClient, Client, Response
+    from httpx import AsyncClient, Client
 except ImportError:
     pass
 
@@ -16,7 +15,7 @@ class HTTPClientManager:
     """
 
     @contextmanager
-    def get_client(self) -> ContextManager[Client]:
+    def get_client(self) -> Generator[Client, None, None]:
         """Get a synchronous HTTP client within a context manager.
 
         Returns:
@@ -29,7 +28,7 @@ class HTTPClientManager:
             client.close()
 
     @asynccontextmanager
-    async def get_async_client(self) -> AsyncContextManager[AsyncClient]:
+    async def get_async_client(self) -> AsyncGenerator[AsyncClient, None]:
         """Get an asynchronous HTTP client within a context manager.
 
         Returns:
@@ -40,4 +39,3 @@ class HTTPClientManager:
             yield client
         finally:
             await client.aclose()
-
