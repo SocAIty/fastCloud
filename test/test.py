@@ -1,7 +1,7 @@
 import os
 import asyncio
 
-from fastCloud import FastCloud, AzureBlobStorage, SocaityUploadAPI, ReplicateUploadAPI
+from fastCloud import FastCloud, AzureBlobStorage, S3Storage, SocaityUploadAPI, ReplicateUploadAPI
 from media_toolkit import ImageFile, VideoFile, MediaList, MediaFile, MediaDict
 
 
@@ -52,6 +52,21 @@ def get_test_providers():
     else:
         print("Skipping Azure: set AZURE_BLOB_STORAGE_CONNECTION_STRING or AZURE_BLOB_STORAGE_SAS_URL")
 
+    # S3 Storage (Updated to match your __init__)
+    s3_access = os.environ.get("S3_ACCESS_KEY_ID")
+    s3_secret = os.environ.get("S3_ACCESS_KEY_SECRET")
+    s3_endpoint = os.environ.get("S3_ENDPOINT_URL")
+
+    if s3_access and s3_secret:
+        s3 = S3Storage(
+            access_key_id=s3_access,
+            access_key_secret=s3_secret,
+            endpoint_url=s3_endpoint
+        )
+        providers.append(s3)
+    else:
+        print("Skipping S3: set S3_ACCESS_KEY_ID and S3_ACCESS_KEY_SECRET")
+
     # Replicate
     replicate_key = os.environ.get("REPLICATE_API_KEY")
     if replicate_key:
@@ -87,6 +102,9 @@ def _assert_urls_recursive(obj):
 def do_upload(cloud: FastCloud, payload):
     if isinstance(cloud, AzureBlobStorage):
         return cloud.upload(payload, folder=os.getenv("AZURE_BLOB_STORAGE_CONTAINER", "upload"))
+    elif isinstance(cloud, S3Storage):
+        # Using S3_BUCKET env var for the bucket parameter
+        return cloud.upload(payload, folder=os.getenv("S3_BUCKET", "upload"))
     else:
         return cloud.upload(payload)
 
@@ -94,6 +112,8 @@ def do_upload(cloud: FastCloud, payload):
 async def do_upload_async(cloud: FastCloud, payload):
     if isinstance(cloud, AzureBlobStorage):
         return await cloud.upload_async(payload, folder=os.getenv("AZURE_BLOB_STORAGE_CONTAINER", "upload"))
+    elif isinstance(cloud, S3Storage):
+        return await cloud.upload_async(payload, folder=os.getenv("S3_BUCKET", "upload"))
     else:
         return await cloud.upload_async(payload)
 
