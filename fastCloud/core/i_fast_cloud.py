@@ -94,7 +94,7 @@ class FastCloud:
                 # we upload sequentially
                 return [await self.upload_async(f, *args, **kwargs) for f in file]
             else:
-                return await self._upload_files_async(file.get_processable_files(), *args, **kwargs)
+                return await self._upload_files_async(file.get_processable_files().to_list(), *args, **kwargs)
         elif isinstance(file, MediaFile):
             return await self._upload_files_async(file, *args, **kwargs)
 
