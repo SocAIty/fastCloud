@@ -1,15 +1,27 @@
+<p align="center">
+  <img src="docs/assets/banner.png" alt="FastCloud. Any cloud. One interface." width="100%" />
+</p>
 
-<h1 align="center" style="margin-top:-25px">FastCloud</h1>
+<p align="center">
+  <a href="https://pypi.org/project/fastcloud/"><img src="https://img.shields.io/pypi/v/fastcloud?labelColor=000000&color=76B900" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/fastcloud/"><img src="https://img.shields.io/pypi/pyversions/fastcloud?labelColor=000000&color=76B900" alt="Python versions"></a>
+  <a href="https://github.com/SocAIty/fastCloud"><img src="https://img.shields.io/badge/github-SocAIty%2FfastCloud-76B900?labelColor=000000" alt="GitHub"></a>
+</p>
 
-<h3 align="center" style="margin-top:-10px">Up & Download files to any cloud storage.</h3>
+<h3 align="center">Any cloud. One interface.</h3>
 
-Simplistic unified interface for uploading and downloading files to the cloud. 
+<p align="center">
+  Upload and download files to any cloud through one client.<br>
+  Switch between Azure Blob, S3, Socaity and Replicate without changing your code.
+</p>
+
+Simplistic unified interface for uploading and downloading files to the cloud.
 
 Supports
-- Azure Blob Storage  :white_check_mark:
+- Azure Blob Storage :white_check_mark:
+- S3 :white_check_mark:
 - Socaity Upload API
 - Replicate Upload API
-
 
 # Installation
 
