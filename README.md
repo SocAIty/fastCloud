@@ -1,5 +1,9 @@
 
 <h1 align="center" style="margin-top:-25px">FastCloud</h1>
+<p align="center">
+  <img src="docs/assets/logo.png" alt="FastCloud logo" height="200" />
+</p>
+
 
 <h3 align="center" style="margin-top:-10px">Up & Download files to any cloud storage.</h3>
 
