@@ -73,4 +73,9 @@ Missing a feature?
 
 Also have a look at [media-toolkit](https://github.com/SocAIty/media-toolkit), [APIPod](https://github.com/SocAIty/APIPod) for your personal cloud solution.
 
-### SUPPORT SOCAITY BY LEAVING A STAR
+---
+
+<p align="center">
+  Made with ❤️ by <a href="https://www.socaity.ai?utm_source=github&utm_content=fastcloud-20-29-06-2026">SocAIty</a>
+  <p align="center">Remember: Existence is pain to a Meseex, but task completion brings them joy!</p>
+</p>

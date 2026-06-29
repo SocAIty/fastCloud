@@ -107,7 +107,6 @@ class S3Storage(FastCloud):
         logging.getLogger("aioboto3").setLevel(logging.ERROR)
         logging.getLogger("aiobotocore").setLevel(logging.ERROR)
 
-
     @classmethod
     def from_scaleway(
         cls,
@@ -161,8 +160,6 @@ class S3Storage(FastCloud):
     # ------------------------------------------------------------------ #
     # Internal client management                                           #
     # ------------------------------------------------------------------ #
-
-
     def _get_boto_client(self) -> "boto3.client":
         """
         Return a cached boto3 S3 client, creating one on first call.
