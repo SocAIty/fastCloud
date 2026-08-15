@@ -228,20 +228,48 @@ class S3Storage(FastCloud):
     # Core upload primitives (called by FastCloud after type dispatch)     #
     # ------------------------------------------------------------------ #
 
+    def _prepare_fileobj(self, f: Any) -> tuple:
+        """Normalize an upload source to ``(key, fileobj, content_type)``.
+
+        Accepts a MediaFile (streamed via its lazy ``fileobj`` view) or any
+        seekable file-like object. Everything else is wrapped through
+        ``MediaFile.from_any``. The fileobj is positioned at 0 on return.
+
+        MediaFile keys: ``file_name`` is used verbatim, so callers control the
+        object key (including folder-style prefixes) by setting ``file_name``.
+        A UUID key with the detected extension is generated when the name is
+        missing or the meaningless default "file".
+        """
+        if not isinstance(f, MediaFile) and hasattr(f, "read") and hasattr(f, "seek"):
+            key = os.path.basename(getattr(f, "name", "") or "") or str(uuid.uuid4())
+            f.seek(0)
+            return key, f, "application/octet-stream"
+
+        if not isinstance(f, MediaFile):
+            f = MediaFile().from_any(f)
+
+        if not f.file_name or f.file_name in ("", "file"):
+            ext = f.extension  # None when truly undetermined
+            base = str(uuid.uuid4())
+            f.file_name = f"{base}.{ext}" if ext else base
+
+        fileobj = f.fileobj
+        fileobj.seek(0)
+        return f.file_name, fileobj, f.content_type or "application/octet-stream"
+
     def _upload_files(
         self,
-        files: Union[MediaFile, List[MediaFile]],
+        files: Union[MediaFile, List[MediaFile], Any],
         folder: str,
         *args,
         **kwargs,
     ) -> Union[str, List[str]]:
         """
-        Upload one or more MediaFile objects to S3 synchronously.
+        Upload one or more files to S3 synchronously, streaming from their fileobj.
 
-        FastCloud guarantees that `files` is already a list of MediaFile by the
-        time it reaches here, so we don't need to repeat type-checking.
+        Accepts MediaFile instances and raw seekable file-like objects.
 
-        :param files:  A single MediaFile or a list of MediaFile instances.
+        :param files:  A single file or a list of files.
         :param folder: The S3 bucket name (equivalent to Azure's container).
         :return:       A single URL string when one file was uploaded, or a list of URLs.
         """
@@ -252,55 +280,9 @@ class S3Storage(FastCloud):
         urls: List[str] = []
 
         for f in files:
-            # Guard 1: FastCloud's get_processable_files() may hand us raw bytes,
-            # file paths, or other non-MediaFile types depending on the container
-            # variant (MediaList, MediaDict, nested structures). Normalise everything
-            # to MediaFile so the rest of this loop is type-safe.
-            if not isinstance(f, MediaFile):
-                f = MediaFile().from_any(f)
-
-            # Guard 2: Certain MediaFile subclasses (e.g. VideoFile) implement
-            # to_bytes() as a generator/chunked API that returns a list of byte
-            # segments rather than a single bytes object. This is transparent in
-            # the sync path because FastCloud recurses item-by-item, but surfaces
-            # in the async path where all files arrive together via
-            # get_processable_files(). Join the chunks into a single bytes object
-            # before handing off to BytesIO.
-            raw = f.to_bytes()
-            if isinstance(raw, (list, tuple)):
-                raw = b"".join(raw)
-
-            # Determine the S3 object key (the filename stored in the bucket).
-            #
-            # MediaFile._file_info() guarantees file_name is never None — it
-            # always falls back to the literal string "file". We treat "file"
-            # as "no meaningful name" and generate a UUID instead.
-            #
-            # Crucially we preserve the file extension by reading MediaFile.extension,
-            # which first maps content_type via mime_to_extension(), then falls back
-            # to the filename suffix. Without this, files uploaded with a UUID key
-            # would have NO extension and S3 would serve them as application/octet-stream
-            # regardless of their actual type — breaking any client that relies on
-            # the Content-Type header or the key suffix to determine how to handle them.
-            #
-            # Examples:
-            #   VideoFile  -> content_type="video/mp4"  -> extension="mp4"  -> key="<uuid>.mp4"
-            #   ImageFile  -> content_type="image/png"  -> extension="png"  -> key="<uuid>.png"
-            #   MediaFile with file_name="report.pdf"   ->                     key="report.pdf"
-            if not f.file_name or f.file_name in ("", "file"):
-                ext = f.extension  # None when truly undetermined
-                base = str(uuid.uuid4())
-                f.file_name = f"{base}.{ext}" if ext else base
-
-            key = f.file_name
-
-            # content_type is guaranteed non-None by MediaFile._file_info()
-            # (defaults to "application/octet-stream"), so the fallback here
-            # is purely defensive for any non-standard MediaFile subclass.
-            content_type = f.content_type or "application/octet-stream"
-
+            key, fileobj, content_type = self._prepare_fileobj(f)
             boto_client.upload_fileobj(
-                io.BytesIO(raw),
+                fileobj,
                 folder,
                 key,
                 ExtraArgs={
@@ -309,71 +291,33 @@ class S3Storage(FastCloud):
                 },
                 Config=self.transfer_config,
             )
-
-            # Build a public URL — mirrors how Azure returns blob_client.url.
-            url = f"{self.endpoint_url.rstrip('/')}/{folder}/{key}"
-            urls.append(url)
+            urls.append(f"{self.endpoint_url.rstrip('/')}/{folder}/{key}")
 
         return urls[0] if len(urls) == 1 else urls
 
     async def _upload_files_async(
         self,
-        files: Union[MediaFile, List[MediaFile]],
+        files: Union[MediaFile, List[MediaFile], Any],
         folder: str,
         *args,
         **kwargs,
     ) -> Union[str, List[str]]:
         """
-        Upload one or more MediaFile objects to S3 using true async I/O via aioboto3.
+        Upload one or more files to S3 using true async I/O via aioboto3.
 
-        Design rationale vs the old asyncio.to_thread approach:
-          - asyncio.to_thread offloads the synchronous boto3 call to a thread pool.
-            Uploads are still blocking at the OS level and contend over the GIL
-            during serialisation; each upload consumes an OS thread.
-          - aioboto3 (backed by aiohttp + aiobotocore) performs genuine async I/O.
-            All uploads share a single event loop with no thread overhead, and
-            asyncio.gather runs them concurrently within a single client context.
+        Accepts MediaFile instances and raw seekable file-like objects; both are
+        streamed without an intermediate in-memory copy. A single aioboto3 client
+        is opened for the whole batch and all uploads run concurrently.
 
-        We deliberately prepare all files (CPU-bound: type coercion, byte
-        serialisation) BEFORE opening the async client so the heavy work doesn't
-        block inside the async context where we want pure I/O.
-
-        :param files:  A single MediaFile or a list of MediaFile instances.
+        :param files:  A single file or a list of files.
         :param folder: The S3 bucket name.
         :return:       A single URL string when one file was uploaded, or a list of URLs.
         """
         if not isinstance(files, list):
             files = [files]
 
-        # --- Phase 1: prepare (CPU-bound, runs synchronously before async I/O) ---
-        # Normalise types, join chunked bytes, and resolve filenames up front.
-        # This keeps the async section below pure I/O with no heavy computation.
-        prepared: List[tuple] = []
-        for f in files:
-            if not isinstance(f, MediaFile):
-                f = MediaFile().from_any(f)
-
-            raw = f.to_bytes()
-            if isinstance(raw, (list, tuple)):
-                raw = b"".join(raw)
-
-            if not f.file_name or f.file_name in ("", "file"):
-                ext = f.extension
-                base = str(uuid.uuid4())
-                f.file_name = f"{base}.{ext}" if ext else base
-
-            prepared.append((f, raw))
-
-        # --- Phase 2: upload (true async I/O, all files concurrent) -------------
-        # Open a single aioboto3 client for the entire batch. The context manager
-        # guarantees the underlying aiohttp session is properly closed afterwards,
-        # even if one of the uploads raises an exception.
         async with self._get_aioboto_client_context() as client:
-            tasks = [
-                self._upload_single_file_async(client, f, raw, folder)
-                for f, raw in prepared
-            ]
-            # gather() runs all uploads concurrently on the event loop.
+            tasks = [self._upload_single_file_async(client, f, folder) for f in files]
             urls = await asyncio.gather(*tasks)
 
         return urls[0] if len(urls) == 1 else list(urls)
@@ -381,32 +325,32 @@ class S3Storage(FastCloud):
     async def _upload_single_file_async(
         self,
         client,
-        f: MediaFile,
-        raw: bytes,
+        f: Union[MediaFile, Any],
         folder: str,
     ) -> str:
         """
-        Upload a single pre-prepared MediaFile using an open aioboto3 client.
+        Stream a single file to S3 using an open aioboto3 client.
 
-        Kept as a small, focused coroutine so _upload_files_async can fan out
-        multiple of these with asyncio.gather cleanly.
+        Accepts a MediaFile (streamed via its lazy fileobj view) or any seekable
+        file-like object. boto handles the chunked multipart transfer; no byte
+        copy is made here.
 
         :param client: Active aioboto3 S3 client (open async context manager).
-        :param f:      MediaFile with file_name and content_type already resolved.
-        :param raw:    File contents as a single bytes object.
+        :param f:      MediaFile or seekable file-like object.
         :param folder: S3 bucket name.
         :return:       Public URL of the uploaded object.
         """
+        key, fileobj, content_type = self._prepare_fileobj(f)
         await client.upload_fileobj(
-            io.BytesIO(raw),
+            fileobj,
             folder,
-            f.file_name,
+            key,
             ExtraArgs={
-                "ContentType": f.content_type or "application/octet-stream",
+                "ContentType": content_type,
                 "ACL": "public-read",
             },
         )
-        return f"{self.endpoint_url.rstrip('/')}/{folder}/{f.file_name}"
+        return f"{self.endpoint_url.rstrip('/')}/{folder}/{key}"
 
     # ------------------------------------------------------------------ #
     # Public upload interface (delegates type-dispatch to FastCloud)       #
