@@ -7,12 +7,12 @@ from media_toolkit.utils.dependency_requirements import requires
 import os
 
 try:
-    from httpx import Response, AsyncClient
+    from httpx2 import Response, AsyncClient
 except ImportError:
     pass
 
 
-@requires("httpx")
+@requires("httpx2")
 class SocaityUploadAPI(BaseUploadAPI):
     """Socaity-specific implementation of the upload API.
 

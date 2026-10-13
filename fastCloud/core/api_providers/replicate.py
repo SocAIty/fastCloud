@@ -4,12 +4,12 @@ from fastCloud.core.api_providers.i_upload_api import BaseUploadAPI
 from media_toolkit.utils.dependency_requirements import requires
 
 try:
-    from httpx import Response
+    from httpx2 import Response
 except ImportError:
     pass
 
 
-@requires("httpx")
+@requires("httpx2")
 class ReplicateUploadAPI(BaseUploadAPI):
     """Replicate-specific implementation of the upload API.
     Args:

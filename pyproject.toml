@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "fastcloud"
 version = "0.0.15"
 description = "Upload and download files to common cloud providers like azure blob storage, s3 and more"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "GPL-3.0-only"
 authors = [
     { name = "SocAIty" }
@@ -14,7 +14,7 @@ authors = [
 readme = "README.md"
 dependencies = [
     "media-toolkit>=0.2.19",
-    "httpx"
+    "httpx2>=2.9"
 ]
 
 [project.optional-dependencies]
