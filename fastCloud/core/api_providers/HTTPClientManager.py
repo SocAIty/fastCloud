@@ -2,7 +2,7 @@ from typing import Generator, AsyncGenerator
 from contextlib import asynccontextmanager, contextmanager
 
 try:
-    from httpx import AsyncClient, Client
+    from httpx2 import AsyncClient, Client
 except ImportError:
     pass
 
@@ -19,7 +19,7 @@ class HTTPClientManager:
         """Get a synchronous HTTP client within a context manager.
 
         Returns:
-            ContextManager[Client]: A context-managed httpx.Client instance.
+            ContextManager[Client]: A context-managed httpx2.Client instance.
         """
         client = Client()
         try:
@@ -32,7 +32,7 @@ class HTTPClientManager:
         """Get an asynchronous HTTP client within a context manager.
 
         Returns:
-            AsyncContextManager[AsyncClient]: A context-managed httpx.AsyncClient instance.
+            AsyncContextManager[AsyncClient]: A context-managed httpx2.AsyncClient instance.
         """
         client = AsyncClient()
         try:

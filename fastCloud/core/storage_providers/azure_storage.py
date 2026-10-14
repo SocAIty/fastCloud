@@ -16,7 +16,7 @@ except ImportError:
     pass
 
 try:
-    import httpx
+    import httpx2
 except ImportError:
     pass
 
@@ -339,7 +339,7 @@ class AzureBlobStorage(FastCloud):
             print(f"An error occurred while generating SAS token: {e}")
             return None
 
-    @requires("httpx")
+    @requires("httpx2")
     @staticmethod
     def upload_with_temporary_upload_link(sas_url: str, file: Union[bytes, io.BytesIO, MediaFile, str]) -> bool:
         """
@@ -351,13 +351,13 @@ class AzureBlobStorage(FastCloud):
         try:
             file = MediaFile().from_any(file)
             headers = {"x-ms-blob-type": "BlockBlob"}
-            response = httpx.put(sas_url, content=file.to_bytes(), headers=headers)
+            response = httpx2.put(sas_url, content=file.to_bytes(), headers=headers)
             return response.status_code == 201
         except Exception as e:
             print(f"An error occurred during SAS upload: {e}")
             return False
 
-    @requires("httpx")
+    @requires("httpx2")
     @staticmethod
     async def async_upload_with_temporary_upload_link(sas_url: str, file: Union[bytes, io.BytesIO, MediaFile, str]) -> bool:
         """
@@ -369,7 +369,7 @@ class AzureBlobStorage(FastCloud):
         try:
             file = MediaFile().from_any(file)
             headers = {"x-ms-blob-type": "BlockBlob", "x-ms-if-none-match": "*"}
-            async with httpx.AsyncClient() as client:
+            async with httpx2.AsyncClient() as client:
                 response = await client.put(sas_url, content=file.to_bytes(), headers=headers)
                 return response.status_code == 201
         except Exception as e:
