@@ -7,7 +7,7 @@ from fastCloud.core.api_providers.HTTPClientManager import HTTPClientManager
 from media_toolkit import MediaFile, media_from_any
 
 try:
-    from httpx import Response
+    from httpx2 import Response
 except Exception:
     pass
 
